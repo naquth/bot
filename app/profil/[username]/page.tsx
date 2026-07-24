@@ -9,9 +9,10 @@ import { MessageButton } from "@/components/message-button";
 import { FollowerCounts } from "@/components/follower-counts";
 import { ProfileOptionsMenu } from "@/components/profile-options-menu";
 import { BottomNav } from "@/components/bottom-nav";
-import { Settings, Bookmark, Ban, FileText } from "lucide-react";
+import { Settings, Bookmark, Ban, FileText, Lock } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { VerifiedBadge } from "@/components/verified-badge";
+import type { FollowStatus } from "@/lib/types";
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
@@ -68,13 +69,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
     );
   }
 
-  const [{ count: followerCount }, { count: followingCount }, posts] = await Promise.all([
-    supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", profile.id),
-    supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
-    iBlockedThem ? Promise.resolve([]) : getUserPosts(supabase, profile.id, user?.id),
-  ]);
-
   let isFollowing = false;
+  let hasRequested = false;
   if (user && !isOwnProfile) {
     const { data } = await supabase
       .from("follows")
@@ -83,7 +79,32 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       .eq("following_id", profile.id)
       .maybeSingle();
     isFollowing = !!data;
+
+    if (!isFollowing) {
+      const { data: reqData } = await supabase
+        .from("follow_requests")
+        .select("requester_id")
+        .eq("requester_id", user.id)
+        .eq("target_id", profile.id)
+        .maybeSingle();
+      hasRequested = !!reqData;
+    }
   }
+
+  const followStatus: FollowStatus = isFollowing ? "following" : hasRequested ? "requested" : "none";
+
+  // Akun privat: sembunyikan post & jumlah follower/following dari siapa
+  // pun yang bukan pemilik atau follower yang sudah disetujui. RLS di DB
+  // juga sudah menegakkan ini di level query (can_view_post &
+  // can_view_follow_list), jadi ini murni untuk UX — beri layar "terkunci"
+  // yang jelas alih-alih daftar kosong yang membingungkan.
+  const contentLocked = profile.is_private && !isOwnProfile && !isFollowing;
+
+  const [{ count: followerCount }, { count: followingCount }, posts] = await Promise.all([
+    supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", profile.id),
+    supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", profile.id),
+    iBlockedThem || contentLocked ? Promise.resolve([]) : getUserPosts(supabase, profile.id, user?.id),
+  ]);
 
   const pinnedPost = posts.find((p) => p.pinned_at);
   const regularPosts = posts.filter((p) => !p.pinned_at);
@@ -137,6 +158,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             <h2 className="flex items-center gap-1.5 font-display text-[22px] font-extrabold tracking-[-0.015em] text-white">
               {profile.display_name}
               {profile.is_verified && <VerifiedBadge size={18} />}
+              {profile.is_private && (
+                <Lock size={15} strokeWidth={2.5} className="text-[var(--color-text-faint)]" aria-label="Akun privat" />
+              )}
             </h2>
             <p className="mt-0.5 text-[14.5px] text-[var(--color-text-dim)]">@{profile.username}</p>
           </div>
@@ -149,22 +173,28 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
           </p>
         )}
 
-        <FollowerCounts
-          profileId={profile.id}
-          initialFollowerCount={followerCount ?? 0}
-          initialFollowingCount={followingCount ?? 0}
-        />
+        {contentLocked ? (
+          <p className="mt-3 text-[14.5px] text-[var(--color-text-dim)]">
+            <span className="font-medium text-white">{followerCount ?? 0}</span> pengikut
+          </p>
+        ) : (
+          <FollowerCounts
+            profileId={profile.id}
+            initialFollowerCount={followerCount ?? 0}
+            initialFollowingCount={followingCount ?? 0}
+          />
+        )}
 
         {!isOwnProfile && !iBlockedThem && (
           <div className="mt-5 flex items-center gap-2.5">
             <div className="flex-1">
               <FollowButton
                 targetUserId={profile.id}
-                initiallyFollowing={isFollowing}
+                initialStatus={followStatus}
                 isLoggedIn={!!user}
               />
             </div>
-            <MessageButton targetUserId={profile.id} isLoggedIn={!!user} />
+            {!contentLocked && <MessageButton targetUserId={profile.id} isLoggedIn={!!user} />}
           </div>
         )}
       </div>
@@ -173,6 +203,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
         <div className="px-4 py-16 text-center">
           <p className="text-[14.5px] text-[var(--color-text-dim)]">
             Kamu memblokir akun ini. Buka blokir untuk melihat utasnya.
+          </p>
+        </div>
+      ) : contentLocked ? (
+        <div className="px-4 py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-surface-2)]">
+            <Lock size={26} strokeWidth={1.5} className="text-[var(--color-text-faint)]" />
+          </div>
+          <p className="mt-5 font-display text-[17px] font-bold text-white">Akun ini privat</p>
+          <p className="mt-1.5 text-[14.5px] leading-relaxed text-[var(--color-text-dim)]">
+            {hasRequested
+              ? "Ikuti untuk melihat utas dan foto dari akun ini."
+              : "Ikuti akun ini untuk melihat utas, foto, dan videonya."}
           </p>
         </div>
       ) : (

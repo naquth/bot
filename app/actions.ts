@@ -185,9 +185,9 @@ export async function toggleFollow(targetUserId: string, follow: boolean) {
   if (!user || user.id === targetUserId) return false;
 
   if (follow) {
-    const { error } = await supabase
-      .from("follows")
-      .insert({ follower_id: user.id, following_id: targetUserId });
+    // send_follow_request menangani baik akun publik (langsung follow)
+    // maupun akun privat (buat permintaan ikuti yang menunggu approval).
+    const { error } = await supabase.rpc("send_follow_request", { target_user_id: targetUserId });
     if (error) return false;
   } else {
     const { error } = await supabase
@@ -198,6 +198,65 @@ export async function toggleFollow(targetUserId: string, follow: boolean) {
     if (error) return false;
   }
 
+  revalidatePath(`/profil/[username]`, "page");
+  return true;
+}
+
+// Kirim/kembalikan status follow untuk akun privat. Dipakai FollowButton
+// supaya tahu harus menampilkan "Ikuti", "Diminta", atau "Mengikuti".
+export async function sendFollowRequest(targetUserId: string): Promise<"following" | "requested" | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.id === targetUserId) return null;
+
+  const { data, error } = await supabase.rpc("send_follow_request", { target_user_id: targetUserId });
+  if (error) return null;
+  revalidatePath(`/profil/[username]`, "page");
+  return data as "following" | "requested";
+}
+
+export async function cancelFollowRequest(targetUserId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { error } = await supabase.rpc("cancel_follow_request", { target_user_id: targetUserId });
+  if (error) return false;
+  revalidatePath(`/profil/[username]`, "page");
+  return true;
+}
+
+export async function respondFollowRequest(requesterUserId: string, accept: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { error } = await supabase.rpc("respond_follow_request", {
+    requester_user_id: requesterUserId,
+    accept,
+  });
+  if (error) return false;
+  revalidatePath("/aktivitas/permintaan-ikuti");
+  revalidatePath("/aktivitas");
+  return true;
+}
+
+export async function togglePrivateAccount(isPrivate: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { error } = await supabase.from("profiles").update({ is_private: isPrivate }).eq("id", user.id);
+  if (error) return false;
+  revalidatePath("/pengaturan-profil");
   revalidatePath(`/profil/[username]`, "page");
   return true;
 }

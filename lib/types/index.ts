@@ -6,7 +6,17 @@ export type Profile = {
   bio: string;
   is_admin: boolean;
   is_verified: boolean;
+  is_private: boolean;
   created_at: string;
+};
+
+export type FollowStatus = "none" | "requested" | "following";
+
+export type FollowRequest = {
+  requester_id: string;
+  target_id: string;
+  created_at: string;
+  requester: Profile;
 };
 
 export type PostVisibility = "public" | "followers" | "private";
@@ -86,7 +96,7 @@ export type StoryGroup = {
   allViewed: boolean;
 };
 
-export type NotificationType = "like" | "reply" | "follow";
+export type NotificationType = "like" | "reply" | "follow" | "mention" | "quote" | "follow_request" | "follow_accept";
 
 export type AppNotification = {
   id: string;

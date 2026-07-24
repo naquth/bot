@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { searchPostsAction } from "@/app/actions";
 import type { Profile, Post } from "@/lib/types";
@@ -116,7 +116,12 @@ export function SearchBox({ currentUserId, trendingPosts }: { currentUserId?: st
           >
             <Avatar username={profile.username} displayName={profile.display_name} avatarUrl={profile.avatar_url} size="list" />
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold text-white">{profile.display_name}</p>
+              <p className="flex items-center gap-1 truncate text-[15px] font-bold text-white">
+                {profile.display_name}
+                {profile.is_private && (
+                  <Lock size={12.5} strokeWidth={2.5} className="shrink-0 text-[var(--color-text-faint)]" />
+                )}
+              </p>
               <p className="truncate text-[14px] text-[var(--color-text-dim)]">@{profile.username}</p>
             </div>
           </Link>

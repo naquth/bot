@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Heart, MessageCircle, UserPlus, Bell, AtSign, Repeat2 } from "lucide-react";
+import { Heart, MessageCircle, UserPlus, Bell, AtSign, Repeat2, Lock } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { RelativeTime } from "@/components/relative-time";
 import { createClient } from "@/lib/supabase/client";
 
-type NotifType = "like" | "reply" | "follow" | "mention" | "quote";
+type NotifType = "like" | "reply" | "follow" | "mention" | "quote" | "follow_request" | "follow_accept";
 
 type Notif = {
   id: string;
@@ -24,6 +24,8 @@ const ICONS = {
   follow: { Icon: UserPlus, className: "text-white", fill: "none" },
   mention: { Icon: AtSign, className: "text-white", fill: "none" },
   quote: { Icon: Repeat2, className: "text-white", fill: "none" },
+  follow_request: { Icon: Lock, className: "text-[#4A9EFF]", fill: "none" },
+  follow_accept: { Icon: UserPlus, className: "text-white", fill: "none" },
 };
 
 const LABELS = {
@@ -32,6 +34,8 @@ const LABELS = {
   follow: "mulai mengikutimu",
   mention: "menyebutmu di sebuah utas",
   quote: "mengulang unggah utasmu",
+  follow_request: "meminta mengikutimu",
+  follow_accept: "menerima permintaan ikutimu",
 };
 
 export function NotificationList({ initialNotifs, userId }: { initialNotifs: Notif[]; userId: string }) {
@@ -100,7 +104,14 @@ export function NotificationList({ initialNotifs, userId }: { initialNotifs: Not
     <>
       {notifs.map((n) => {
         const { Icon, className, fill } = ICONS[n.type];
-        const href = n.type === "follow" ? `/profil/${n.actor.username}` : n.post_id ? `/utas/${n.post_id}` : "/";
+        const href =
+          n.type === "follow_request"
+            ? "/aktivitas/permintaan-ikuti"
+            : n.type === "follow" || n.type === "follow_accept"
+              ? `/profil/${n.actor.username}`
+              : n.post_id
+                ? `/utas/${n.post_id}`
+                : "/";
 
         return (
           <Link

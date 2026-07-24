@@ -4,6 +4,7 @@ import { ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { ProfileEditForm } from "@/components/profile-edit-form";
+import { PrivateAccountToggle } from "@/components/private-account-toggle";
 import { LogoutButton } from "@/components/logout-button";
 import { ExportDataButton } from "@/components/export-data-button";
 import { DeleteAccountButton } from "@/components/delete-account-button";
@@ -24,6 +25,9 @@ export default async function PengaturanProfilPage() {
     <div className="mx-auto min-h-screen max-w-[600px] border-x border-[var(--color-border)]">
       <PageHeader title="Edit profil" backHref={`/profil/${profile.username}`} />
       <ProfileEditForm profile={profile} />
+      <div className="px-4 pb-2">
+        <PrivateAccountToggle initialIsPrivate={profile.is_private ?? false} />
+      </div>
       <div className="flex flex-col gap-2 px-4 pb-8 pt-2">
         {profile.is_admin && (
           <Link

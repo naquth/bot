@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { UserPlus, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { BottomNav } from "@/components/bottom-nav";
@@ -12,6 +14,11 @@ export default async function AktivitasPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/masuk");
+
+  const { count: pendingRequestCount } = await supabase
+    .from("follow_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("target_id", user.id);
 
   const { data: notifs } = await supabase
     .from("notifications")
@@ -35,6 +42,24 @@ export default async function AktivitasPage() {
   return (
     <div className="mx-auto min-h-screen max-w-[600px] border-x border-[var(--color-border)] pb-24">
       <PageHeader title="Aktivitas" />
+
+      {!!pendingRequestCount && pendingRequestCount > 0 && (
+        <Link
+          href="/aktivitas/permintaan-ikuti"
+          className="flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-3.5 transition-colors active:bg-white/[0.04]"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4A9EFF]/15 text-[#4A9EFF]">
+            <UserPlus size={18} strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14.5px] font-bold text-white">Permintaan ikuti</p>
+            <p className="truncate text-[13.5px] text-[var(--color-text-dim)]">
+              {pendingRequestCount} permintaan menunggu persetujuanmu
+            </p>
+          </div>
+          <ChevronRight size={18} strokeWidth={2} className="shrink-0 text-[var(--color-text-faint)]" />
+        </Link>
+      )}
 
       <NotificationList initialNotifs={initialNotifs} userId={user.id} />
 

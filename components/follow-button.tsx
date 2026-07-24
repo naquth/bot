@@ -2,19 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleFollow } from "@/app/actions";
+import { sendFollowRequest, cancelFollowRequest, toggleFollow } from "@/app/actions";
+import type { FollowStatus } from "@/lib/types";
 
 export function FollowButton({
   targetUserId,
-  initiallyFollowing,
+  initialStatus,
   isLoggedIn,
 }: {
   targetUserId: string;
-  initiallyFollowing: boolean;
+  initialStatus: FollowStatus;
   isLoggedIn: boolean;
 }) {
   const router = useRouter();
-  const [following, setFollowing] = useState(initiallyFollowing);
+  const [status, setStatus] = useState<FollowStatus>(initialStatus);
   const [hovering, setHovering] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -23,14 +24,49 @@ export function FollowButton({
       router.push("/masuk");
       return;
     }
-    const next = !following;
-    setFollowing(next);
+
+    if (status === "none") {
+      const prev = status;
+      setStatus("requested"); // optimis; RPC akan mengoreksi ke "following" kalau akun publik
+      startTransition(async () => {
+        const result = await sendFollowRequest(targetUserId);
+        if (!result) {
+          setStatus(prev);
+        } else {
+          setStatus(result);
+        }
+        router.refresh();
+      });
+      return;
+    }
+
+    if (status === "requested") {
+      setStatus("none");
+      startTransition(async () => {
+        const ok = await cancelFollowRequest(targetUserId);
+        if (!ok) setStatus("requested");
+        router.refresh();
+      });
+      return;
+    }
+
+    // status === "following" -> unfollow
+    setStatus("none");
     startTransition(async () => {
-      const ok = await toggleFollow(targetUserId, next);
-      if (!ok) setFollowing(!next);
+      const ok = await toggleFollow(targetUserId, false);
+      if (!ok) setStatus("following");
       router.refresh();
     });
   }
+
+  const isFollowing = status === "following";
+  const isRequested = status === "requested";
+
+  let label = "Ikuti";
+  if (isFollowing) label = hovering ? "Berhenti ikuti" : "Mengikuti";
+  else if (isRequested) label = hovering ? "Batalkan" : "Diminta";
+
+  const outlined = isFollowing || isRequested;
 
   return (
     <button
@@ -39,12 +75,12 @@ export function FollowButton({
       onMouseLeave={() => setHovering(false)}
       disabled={isPending}
       className={
-        following
+        outlined
           ? "w-full min-w-[120px] rounded-full border border-white/[0.14] px-5 py-2.5 text-[14.5px] font-bold text-white transition-colors active:border-[var(--color-like)]/40 active:bg-[var(--color-like)]/10 active:text-[var(--color-like)] disabled:opacity-60"
           : "w-full min-w-[120px] rounded-full bg-white px-5 py-2.5 text-[14.5px] font-bold text-black transition-opacity active:opacity-80 disabled:opacity-60"
       }
     >
-      {following ? (hovering ? "Berhenti ikuti" : "Mengikuti") : "Ikuti"}
+      {label}
     </button>
   );
 }
