@@ -1,11 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { UnreadProvider } from "@/components/unread-provider";
 import { CallProvider } from "@/components/call-provider";
 import { createClient } from "@/lib/supabase/server";
-import { getUnreadCount, getUnreadMessageCount } from "@/lib/queries/posts";
 
 export const metadata: Metadata = {
   title: "Utas",
@@ -19,64 +17,46 @@ export const viewport: Viewport = {
   themeColor: "#08090B",
 };
 
-// Data sesi/akun diambil di sini, terpisah dari RootLayout, supaya bisa
-// dibungkus <Suspense>. Dengan begini Next.js bisa langsung mengirim shell
-// HTML + memicu app/loading.tsx (atau loading.tsx segmen anak) saat
-// render awal / refresh, alih-alih memblokir seluruh response menunggu
-// query Supabase selesai.
-async function SessionProviders({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [unreadNotifications, unreadMessages, profileResult] = await Promise.all([
-    getUnreadCount(supabase, user?.id),
-    getUnreadMessageCount(supabase, user?.id),
-    user
-      ? supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
-      : Promise.resolve({ data: null }),
-  ]);
+  // Hanya profil ringkas (1 query) yang masih diambil di sini karena
+  // dibutuhkan CallProvider & UI secara sinkron. Hitungan unread notifikasi
+  // & pesan sengaja TIDAK diambil di layout lagi — itu dua query tambahan
+  // yang dulu ikut memblokir setiap navigasi, sehingga loading.tsx tiap
+  // halaman jarang sempat tampil. Sekarang diambil oleh UnreadProvider di
+  // client setelah mount.
+  const profileResult = user
+    ? await supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single()
+    : { data: null };
 
-  return (
-    <UnreadProvider
-      userId={user?.id}
-      initialNotifications={unreadNotifications}
-      initialMessages={unreadMessages}
-      myProfile={profileResult.data}
-    >
-      <CallProvider
-        userId={user?.id}
-        selfInfo={
-          profileResult.data && user
-            ? {
-                id: user.id,
-                username: profileResult.data.username,
-                displayName: profileResult.data.display_name,
-                avatarUrl: profileResult.data.avatar_url,
-              }
-            : undefined
-        }
-      >
-        {children}
-      </CallProvider>
-    </UnreadProvider>
-  );
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
   return (
     <html lang="id" className="h-full">
       <body className="min-h-full antialiased">
-        <ToastProvider>
-          <Suspense fallback={children}>
-            <SessionProviders>{children}</SessionProviders>
-          </Suspense>
-        </ToastProvider>
+        <UnreadProvider userId={user?.id} myProfile={profileResult.data}>
+          <CallProvider
+            userId={user?.id}
+            selfInfo={
+              profileResult.data && user
+                ? {
+                    id: user.id,
+                    username: profileResult.data.username,
+                    displayName: profileResult.data.display_name,
+                    avatarUrl: profileResult.data.avatar_url,
+                  }
+                : undefined
+            }
+          >
+            <ToastProvider>{children}</ToastProvider>
+          </CallProvider>
+        </UnreadProvider>
       </body>
     </html>
   );

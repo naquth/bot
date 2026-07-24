@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getUnreadMessageCountAction } from "@/app/actions";
+import { getUnreadMessageCountAction, getUnreadNotificationCountAction } from "@/app/actions";
 
 type MyProfile = { username: string; display_name: string; avatar_url: string | null };
 
@@ -34,16 +34,34 @@ export function UnreadProvider({
   children,
 }: {
   userId?: string;
-  initialNotifications: number;
-  initialMessages: number;
+  // Opsional & hanya dipakai sebagai nilai awal kalau sudah tersedia dari
+  // server (mis. hasil cache). Provider ini sekarang mengambil hitungan
+  // sendiri secara client-side setelah mount lewat server action, supaya
+  // RootLayout tidak perlu menunggu query ini sebelum bisa mengirim
+  // halaman — jadi loading.tsx tiap segmen bisa tampil dengan benar.
+  initialNotifications?: number;
+  initialMessages?: number;
   myProfile: MyProfile | null;
   children: React.ReactNode;
 }) {
-  const [unreadNotifications, setUnreadNotifications] = useState(initialNotifications);
-  const [unreadMessages, setUnreadMessages] = useState(initialMessages);
+  const [unreadNotifications, setUnreadNotifications] = useState(initialNotifications ?? 0);
+  const [unreadMessages, setUnreadMessages] = useState(initialMessages ?? 0);
 
   useEffect(() => {
     if (!userId) return;
+
+    let cancelled = false;
+    Promise.all([getUnreadNotificationCountAction(), getUnreadMessageCountAction()])
+      .then(([notifCount, msgCount]) => {
+        if (cancelled) return;
+        setUnreadNotifications(notifCount);
+        setUnreadMessages(msgCount);
+      })
+      .catch(() => {
+        // Diamkan: badge unread bersifat non-kritis, biarkan tetap 0/nilai
+        // awal jika gagal — jangan sampai melempar error yang menghalangi UI.
+      });
+
     const supabase = createClient();
 
     // Notifikasi: RLS "recipient_id = auth.uid()" sudah membatasi baris yang
@@ -70,6 +88,7 @@ export function UnreadProvider({
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(msgChannel);
     };

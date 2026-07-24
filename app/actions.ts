@@ -718,6 +718,21 @@ export async function getUnreadMessageCountAction() {
   return getUnreadMessageCount(supabase, user.id);
 }
 
+// Dipakai UnreadProvider untuk mengambil jumlah notifikasi belum dibaca
+// setelah mount di client, bukan lagi di RootLayout. Ini mencegah query
+// notifikasi memblokir/menunda render setiap segmen halaman (lihat juga
+// getUnreadMessageCountAction di atas).
+export async function getUnreadNotificationCountAction() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const { getUnreadCount } = await import("@/lib/queries/posts");
+  return getUnreadCount(supabase, user.id);
+}
+
 // Dipakai provider panggilan global untuk tahu percakapan mana saja yang
 // harus didengarkan sinyal telepon masuknya. Hanya mengembalikan DM 1-ke-1
 // (bukan grup) karena grup call belum didukung.
