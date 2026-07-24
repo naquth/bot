@@ -6,6 +6,7 @@ import { skeletonForPath } from "@/components/route-skeletons";
 
 const MIN_VISIBLE_MS = 220;
 const NAVIGATE_EVENT = "utas:route-transition-start";
+const SYNC_OVERLAY_ID = "utas-sync-route-overlay";
 
 /**
  * Dipakai oleh komponen yang bernavigasi lewat router.push() /
@@ -24,36 +25,61 @@ export function announceRouteTransition(targetPath: string) {
   window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT, { detail: { targetPath } }));
 }
 
+// Render skeleton ke string HTML statis untuk dipasang langsung lewat DOM
+// API (bukan lewat React state) pada saat klik terjadi. Ini penting: kalau
+// kita hanya memanggil setState di dalam click handler, overlay baru benar-
+// benar tercat ke layar setelah React menjadwalkan ulang render — dan pada
+// celah waktu itu, transisi rute bawaan Next.js (yang juga sempat memasang
+// app/loading.tsx miliknya sendiri sebelum konten baru siap) bisa sempat
+// ter-paint duluan, menyebabkan kedipan skeleton yang salah. Dengan
+// memasang elemen overlay langsung ke DOM secara síncron di dalam event
+// handler yang sama, overlay pasti tercat di frame yang SAMA dengan klik,
+// sebelum apa pun di baliknya sempat berubah.
+import { renderToStaticMarkup } from "react-dom/server";
+
+function paintSyncOverlay(node: React.ReactNode) {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById(SYNC_OVERLAY_ID);
+  if (!el) {
+    el = document.createElement("div");
+    el.id = SYNC_OVERLAY_ID;
+    el.setAttribute("aria-hidden", "true");
+    el.style.position = "fixed";
+    el.style.inset = "0";
+    el.style.zIndex = "200";
+    el.style.background = "black";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = renderToStaticMarkup(node);
+  el.style.display = "block";
+}
+
+function clearSyncOverlay() {
+  const el = document.getElementById(SYNC_OVERLAY_ID);
+  if (el) el.style.display = "none";
+}
+
 /**
  * Kenapa komponen ini ada:
  *
- * 1) "Animasi beranda dulu baru animasi profil" — ini terjadi karena
- *    <Link> milik Next.js melakukan prefetch di background dan menyimpan
- *    hasilnya ke Router Cache (~30 detik). Saat pindah ke /profil/[username],
- *    Next kadang menampilkan apa pun yang masih ter-resolve dari cache
- *    (termasuk state beranda) sebelum akhirnya swap ke skeleton
- *    /profil/[username]/loading.tsx yang benar. Ini perilaku default
- *    Next.js seputar prefetch, bukan sesuatu yang bisa "dimatikan" murni
- *    lewat pengaturan file loading.tsx.
+ * "Animasi beranda dulu baru animasi profil" — ini terjadi karena <Link>
+ * milik Next.js melakukan prefetch di background dan menyimpan hasilnya ke
+ * Router Cache (~30 detik). Saat pindah ke /profil/[username], Next kadang
+ * menampilkan apa pun yang masih ter-resolve dari cache (termasuk state
+ * beranda) sebelum akhirnya swap ke skeleton /profil/[username]/loading.tsx
+ * yang benar. Ini perilaku default Next.js seputar prefetch, bukan sesuatu
+ * yang bisa "dimatikan" murni lewat pengaturan file loading.tsx.
  *
- * 2) "Tidak ada animasi saat refresh" — loading.tsx HANYA berlaku untuk
- *    transisi client-side (didokumentasikan resmi oleh Next.js). Saat hard
- *    refresh / kunjungan pertama, seluruh halaman datang sebagai satu
- *    response HTML; tidak ada fase "fallback" yang terlihat kalau server
- *    cukup cepat menjawab.
+ * Solusi di komponen ini: tangkap klik ke <a href> secara global (capture
+ * phase, sebelum router Next sempat bereaksi), lalu SEGERA cat overlay
+ * skeleton yang benar langsung lewat DOM API (bukan lewat React state),
+ * supaya tercat di frame yang SAMA dengan klik — tidak ada celah waktu
+ * untuk konten lama/loading.tsx bawaan Next ter-paint duluan dan
+ * menyebabkan kedipan.
  *
- * Solusinya di sini: hentikan ketergantungan pada perilaku otomatis
- * loading.tsx untuk dua kasus itu, dan gambar skeleton yang BENAR secara
- * eksplisit dari client:
- *   - Tangkap klik ke <a href> secara global (capture phase, sebelum router
- *     Next sempat bereaksi), tentukan skeleton tujuan dari skeletonForPath,
- *     dan tampilkan overlay itu SEKARANG JUGA — tidak menunggu apa pun.
- *   - Overlay hilang begitu usePathname() benar-benar berubah ke path
- *     tujuan (menandakan konten baru sudah terpasang), dengan durasi
- *     tampil minimum supaya tidak terasa seperti "kedip".
- *   - Saat mount pertama kali (refresh / kunjungan awal), overlay untuk
- *     path SAAT INI otomatis ditampilkan sebentar sebelum menampilkan
- *     konten asli yang sudah ter-render duluan di baliknya.
+ * (Catatan: kasus "tidak ada animasi saat refresh/kunjungan pertama"
+ * ditangani terpisah lewat skeleton HTML+CSS murni di app/layout.tsx yang
+ * tercat sebelum JavaScript apa pun berjalan — lihat komentar di sana.)
  */
 export function RouteTransitionOverlay() {
   const pathname = usePathname();
@@ -61,30 +87,10 @@ export function RouteTransitionOverlay() {
   const pendingPathRef = useRef<string | null>(null);
   const shownAtRef = useRef<number>(0);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstMountRef = useRef(true);
 
-  // Kasus 2: kunjungan pertama / refresh. Tampilkan skeleton untuk rute
-  // yang sedang aktif sebentar, walau konten sebenarnya sudah selesai
-  // di-render server — supaya transisi awal selalu terasa ada animasinya
-  // dan tidak "meloncat" tiba-tiba.
-  useEffect(() => {
-    if (!isFirstMountRef.current) return;
-    isFirstMountRef.current = false;
-
-    setOverlay({ path: pathname, node: skeletonForPath(pathname) });
-    shownAtRef.current = Date.now();
-    hideTimeoutRef.current = setTimeout(() => {
-      setOverlay(null);
-    }, MIN_VISIBLE_MS);
-
-    return () => {
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Kasus 1: klik navigasi. Tangkap di capture phase supaya lebih cepat
-  // dari handler <Link> milik Next sendiri.
+  // Kasus 1: klik navigasi. Tangkap di capture phase, lalu SEGERA cat
+  // overlay lewat DOM langsung (sebelum React sempat re-render), supaya
+  // tidak ada celah untuk beranda/loading.tsx bawaan Next ter-paint duluan.
   useEffect(() => {
     function onClickCapture(e: MouseEvent) {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -100,8 +106,10 @@ export function RouteTransitionOverlay() {
       const targetPath = href.split("?")[0].split("#")[0];
       if (targetPath === pathname) return;
 
+      const node = skeletonForPath(targetPath);
+      paintSyncOverlay(node); // tercat SEKARANG, di frame yang sama dengan klik
       pendingPathRef.current = targetPath;
-      setOverlay({ path: targetPath, node: skeletonForPath(targetPath) });
+      setOverlay({ path: targetPath, node });
       shownAtRef.current = Date.now();
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     }
@@ -111,8 +119,10 @@ export function RouteTransitionOverlay() {
     function onAnnounced(e: Event) {
       const targetPath = (e as CustomEvent<{ targetPath: string }>).detail?.targetPath;
       if (!targetPath || targetPath === pathname) return;
+      const node = skeletonForPath(targetPath);
+      paintSyncOverlay(node);
       pendingPathRef.current = targetPath;
-      setOverlay({ path: targetPath, node: skeletonForPath(targetPath) });
+      setOverlay({ path: targetPath, node });
       shownAtRef.current = Date.now();
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     }
@@ -134,7 +144,10 @@ export function RouteTransitionOverlay() {
     const elapsed = Date.now() - shownAtRef.current;
     const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
 
-    hideTimeoutRef.current = setTimeout(() => setOverlay(null), remaining);
+    hideTimeoutRef.current = setTimeout(() => {
+      clearSyncOverlay();
+      setOverlay(null);
+    }, remaining);
     return () => {
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     };
@@ -144,15 +157,18 @@ export function RouteTransitionOverlay() {
   // (mis. pengguna menekan tombol back di tengah jalan) atau gagal.
   useEffect(() => {
     if (!overlay) return;
-    const safety = setTimeout(() => setOverlay(null), 4000);
+    const safety = setTimeout(() => {
+      clearSyncOverlay();
+      setOverlay(null);
+    }, 4000);
     return () => clearTimeout(safety);
   }, [overlay]);
 
-  if (!overlay) return null;
-
-  return (
-    <div className="fixed inset-0 z-[200] animate-fade-in bg-black" aria-hidden="true">
-      {overlay.node}
-    </div>
-  );
+  // Komponen React ini sendiri tidak lagi menggambar apa pun ke DOM biasa —
+  // elemen overlay yang benar-benar terlihat adalah #utas-sync-route-overlay
+  // yang dipasang síncron di atas. State `overlay` di sini hanya dipakai
+  // untuk melacak kapan harus disembunyikan (durasi minimum, jaring
+  // pengaman, dst). React tidak perlu me-render ulang apa pun ke portal
+  // supaya tidak ada risiko flush render yang telat.
+  return null;
 }
