@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 import { getOrCreateConversation } from "@/app/actions";
 import { useToast } from "@/components/toast";
-import { announceRouteTransition } from "@/components/route-transition-overlay";
 
 export function MessageButton({ targetUserId, isLoggedIn }: { targetUserId: string; isLoggedIn: boolean }) {
   const router = useRouter();
@@ -14,14 +13,12 @@ export function MessageButton({ targetUserId, isLoggedIn }: { targetUserId: stri
 
   function handleClick() {
     if (!isLoggedIn) {
-      announceRouteTransition("/masuk");
       router.push("/masuk");
       return;
     }
     startTransition(async () => {
       const res = await getOrCreateConversation(targetUserId);
       if (res.ok) {
-        announceRouteTransition(`/pesan/${res.id}`);
         router.push(`/pesan/${res.id}`);
       } else {
         showToast(res.error ?? "Gagal memulai percakapan", "error");

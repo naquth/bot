@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { announceRouteTransition } from "@/components/route-transition-overlay";
 import { Heart, MessageCircle, Repeat2, Bookmark, MoreHorizontal, Trash2, Link2, Check, Pencil, Flag, Pin, PinOff } from "lucide-react";
 import type { Post } from "@/lib/types";
 import { toggleLike, deletePost, toggleBookmark, updatePost, togglePinPost } from "@/app/actions";
@@ -170,10 +169,7 @@ export function PostCard({ post, currentUserId, currentUserProfile, clickable = 
   }
 
   function handleCardClick() {
-    if (clickable) {
-      announceRouteTransition(`/utas/${post.id}`);
-      router.push(`/utas/${post.id}`);
-    }
+    if (clickable) router.push(`/utas/${post.id}`);
   }
 
   if (deleted) return null;
@@ -402,7 +398,6 @@ export function PostCard({ post, currentUserId, currentUserProfile, clickable = 
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                announceRouteTransition(`/utas/${post.id}`);
                 router.push(`/utas/${post.id}`);
               }}
               aria-label="Balas"
