@@ -3,6 +3,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { UnreadProvider } from "@/components/unread-provider";
 import { CallProvider } from "@/components/call-provider";
+import { RouteTransitionOverlay } from "@/components/route-transition-overlay";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ export default async function RootLayout({
   return (
     <html lang="id" className="h-full">
       <body className="min-h-full antialiased">
+        <RouteTransitionOverlay />
         <UnreadProvider userId={user?.id} myProfile={profileResult.data}>
           <CallProvider
             userId={user?.id}
