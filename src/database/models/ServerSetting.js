@@ -13,6 +13,23 @@ const ServerSetting = sequelize.define('ServerSetting', {
 	serverStats: { type: DataTypes.JSON, defaultValue: [] }, // [{channelId, format, enabled}]
 	streakEmoji: { type: DataTypes.STRING, defaultValue: '🔥' },
 	streakOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	verificationOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	// --- Automod ---
+	automodOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	modLogChannelId: { type: DataTypes.STRING, allowNull: true },
+	whitelist: { type: DataTypes.JSON, defaultValue: [] }, // user/role IDs exempt from automod
+	ignoredChannels: { type: DataTypes.JSON, defaultValue: [] },
+	badwords: { type: DataTypes.JSON, defaultValue: [] },
+	antiSpamOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiBadwordOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiMentionOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiLinkOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiInviteOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiAllCapsOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiEmojiSpamOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiZalgoOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	antiGhostPingOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	automodConfig: { type: DataTypes.JSON, allowNull: true }, // thresholds override
 	streakMinimum: { type: DataTypes.INTEGER, defaultValue: 3 },
 	streakNickname: { type: DataTypes.BOOLEAN, defaultValue: false },
 	streakTimezone: { type: DataTypes.STRING, allowNull: true },

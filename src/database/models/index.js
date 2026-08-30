@@ -33,6 +33,8 @@ const SocialAlertSubscription = require('./SocialAlertSubscription');
 const SocialAlertSetting = require('./SocialAlertSetting');
 const ReactionRolePanel = require('./ReactionRolePanel');
 const ReactionRole = require('./ReactionRole');
+const VerificationConfig = require('./VerificationConfig');
+const ModLog = require('./ModLog');
 
 UserPet.belongsTo(Pet, { foreignKey: 'petId', as: 'pet' });
 Pet.hasMany(UserPet, { foreignKey: 'petId' });
@@ -77,4 +79,6 @@ module.exports = {
 	SocialAlertSetting,
 	ReactionRolePanel,
 	ReactionRole,
+	VerificationConfig,
+	ModLog,
 };
