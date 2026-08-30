@@ -35,6 +35,9 @@ const ReactionRolePanel = require('./ReactionRolePanel');
 const ReactionRole = require('./ReactionRole');
 const VerificationConfig = require('./VerificationConfig');
 const ModLog = require('./ModLog');
+const TicketConfig = require('./TicketConfig');
+const TicketPanel = require('./TicketPanel');
+const Ticket = require('./Ticket');
 
 UserPet.belongsTo(Pet, { foreignKey: 'petId', as: 'pet' });
 Pet.hasMany(UserPet, { foreignKey: 'petId' });
@@ -81,4 +84,7 @@ module.exports = {
 	ReactionRole,
 	VerificationConfig,
 	ModLog,
+	TicketConfig,
+	TicketPanel,
+	Ticket,
 };

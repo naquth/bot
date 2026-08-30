@@ -20,6 +20,7 @@ const client = new Client({
 client.commands = new Collection();
 client.buttons = new Collection();
 client.selectMenus = new Collection();
+client.modals = new Collection();
 
 function loadCommands() {
 	const commandsDir = path.join(__dirname, 'commands');
@@ -50,6 +51,16 @@ function loadSelectMenus() {
 	console.log(`Loaded ${client.selectMenus.size} select menu handler(s).`);
 }
 
+function loadModals() {
+	const dir = path.join(__dirname, 'modals');
+	if (!fs.existsSync(dir)) return;
+	for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.js'))) {
+		const modal = require(path.join(dir, file));
+		if (modal?.modalPrefix) client.modals.set(modal.modalPrefix, modal);
+	}
+	console.log(`Loaded ${client.modals.size} standalone modal handler(s).`);
+}
+
 function loadEvents() {
 	const eventsDir = path.join(__dirname, 'events');
 	for (const file of fs.readdirSync(eventsDir).filter((f) => f.endsWith('.js'))) {
@@ -77,6 +88,7 @@ async function main() {
 	loadCommands();
 	loadButtons();
 	loadSelectMenus();
+	loadModals();
 	loadEvents();
 
 	const GiveawayManager = require('./giveaway/GiveawayManager');

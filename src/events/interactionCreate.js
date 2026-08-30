@@ -37,6 +37,15 @@ module.exports = {
 
 		if (interaction.isModalSubmit()) {
 			const prefix = interaction.customId.split('|')[0];
+			const standaloneModal = interaction.client.modals.get(prefix);
+			if (standaloneModal) {
+				try {
+					await standaloneModal.handleModal(interaction);
+				} catch (err) {
+					console.error(`Error handling modal ${interaction.customId}:`, err);
+				}
+				return;
+			}
 			const command = [...interaction.client.commands.values()].find((c) => c.modalPrefix === prefix);
 			if (!command?.handleModal) return;
 			try {
