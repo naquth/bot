@@ -14,6 +14,7 @@ const ServerSetting = sequelize.define('ServerSetting', {
 	streakEmoji: { type: DataTypes.STRING, defaultValue: '🔥' },
 	streakOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	verificationOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	levelingOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	// --- Automod ---
 	automodOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	modLogChannelId: { type: DataTypes.STRING, allowNull: true },

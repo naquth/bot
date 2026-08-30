@@ -38,6 +38,13 @@ const ModLog = require('./ModLog');
 const TicketConfig = require('./TicketConfig');
 const TicketPanel = require('./TicketPanel');
 const Ticket = require('./Ticket');
+const LevelingSetting = require('./LevelingSetting');
+const UserLevel = require('./UserLevel');
+const Subdomain = require('./Subdomain');
+const DnsRecord = require('./DnsRecord');
+
+Subdomain.hasMany(DnsRecord, { foreignKey: 'subdomainId', onDelete: 'CASCADE' });
+DnsRecord.belongsTo(Subdomain, { foreignKey: 'subdomainId' });
 
 UserPet.belongsTo(Pet, { foreignKey: 'petId', as: 'pet' });
 Pet.hasMany(UserPet, { foreignKey: 'petId' });
@@ -87,4 +94,8 @@ module.exports = {
 	TicketConfig,
 	TicketPanel,
 	Ticket,
+	LevelingSetting,
+	UserLevel,
+	Subdomain,
+	DnsRecord,
 };
