@@ -23,9 +23,24 @@ const factClassifiers = [
 ];
 
 const typeLabels = {
-	birthday: 'Birthday', name: 'Name', hobby: 'Hobbies', age: 'Age', location: 'Location', job: 'Job', education: 'Education',
-	relationship: 'Relationship', social: 'Social Media', language: 'Language', color: 'Favorite Color', food: 'Favorite Food/Drink',
-	animal: 'Favorite Animal', movie: 'Favorite Movie', music: 'Favorite Music', book: 'Favorite Book', game: 'Favorite Game', other: 'Other Facts',
+	birthday: 'Birthday',
+	name: 'Name',
+	hobby: 'Hobbies',
+	age: 'Age',
+	location: 'Location',
+	job: 'Job',
+	education: 'Education',
+	relationship: 'Relationship',
+	social: 'Social Media',
+	language: 'Language',
+	color: 'Favorite Color',
+	food: 'Favorite Food/Drink',
+	animal: 'Favorite Animal',
+	movie: 'Favorite Movie',
+	music: 'Favorite Music',
+	book: 'Favorite Book',
+	game: 'Favorite Game',
+	other: 'Other Facts',
 };
 
 function classifyFact(fact) {
@@ -37,8 +52,18 @@ function classifyFact(fact) {
 
 async function appendFact(userId, fact) {
 	const type = classifyFact(fact);
+
 	try {
-		const [, created] = await UserFact.findOrCreate({ where: { userId, fact: fact.trim() }, defaults: { type } });
+		const [, created] = await UserFact.findOrCreate({
+			where: {
+				userId,
+				fact: fact.trim(),
+			},
+			defaults: {
+				type,
+			},
+		});
+
 		return created ? 'added' : 'duplicate';
 	} catch (err) {
 		console.error('[ai/facts] appendFact failed:', err.message);
@@ -47,16 +72,29 @@ async function appendFact(userId, fact) {
 }
 
 async function getFactsString(userId) {
-	const facts = await UserFact.findAll({ where: { userId }, order: [['createdAt', 'DESC']], limit: 50 });
+	const facts = await UserFact.findAll({
+		where: { userId },
+		order: [['createdAt', 'DESC']],
+		limit: 50,
+	});
+
 	if (facts.length === 0) return '';
 
 	const grouped = {};
+
 	for (const f of facts) {
 		const label = typeLabels[f.type] || 'Other';
-		if (!grouped[label]) grouped[label] = [];
+
+		if (!grouped[label]) {
+			grouped[label] = [];
+		}
+
 		grouped[label].push(f.fact);
 	}
-	return Object.entries(grouped).map(([label, list]) => `- ${label}: ${list.join('; ')}`).join('\n');
+
+	return Object.entries(grouped)
+		.map(([label, list]) => `- ${label}: ${list.join('; ')}`)
+		.join('\n');
 }
 
 /** Extracts 1-3 new facts from a recent exchange and stores them, using a lightweight Gemini call. */
@@ -65,6 +103,7 @@ async function summarizeAndStoreFacts(userId, conversationHistory) {
 
 	const tokenIdx = getAndUseNextAvailableToken();
 	if (tokenIdx === -1) return;
+
 	const apiKey = GEMINI_API_KEYS[tokenIdx];
 
 	const instruction = `You are a summarization assistant. Based on the following conversation history, extract 1-3 new, important, and non-trivial facts about the 'user'.
@@ -75,22 +114,59 @@ If there are no new important facts, respond with the single keyword: "NO_NEW_FA
 
 	try {
 		const ai = new GoogleGenAI({ apiKey });
+
+		const history = conversationHistory
+			.map((msg) => ({
+				role: msg.role,
+				parts: [{
+					text: typeof msg.content === 'string'
+						? msg.content.slice(0, 4000)
+						: '',
+				}],
+			}))
+			.filter((msg) => msg.parts[0].text);
+
+		// Gemini requires the conversation history to start with a user turn.
+		const firstUserIndex = history.findIndex(
+			(msg) => msg.role === 'user'
+		);
+
+		if (firstUserIndex === -1) return;
+
+		const validHistory = history.slice(firstUserIndex);
+
 		const response = await ai.models.generateContent({
 			model: DEFAULT_MODEL,
-			contents: [
-				{ role: 'model', parts: [{ text: instruction }] },
-				...conversationHistory.map((msg) => ({ role: msg.role, parts: [{ text: typeof msg.content === 'string' ? msg.content.slice(0, 4000) : '' }] })),
-			],
+			contents: validHistory,
+			config: {
+				systemInstruction: instruction,
+			},
 		});
 
 		const summaryText = (response?.text ?? '').trim();
+
 		if (summaryText && summaryText !== 'NO_NEW_FACTS') {
-			const newFacts = summaryText.split('\n').map((f) => f.replace(/^-\s*/, '').trim()).filter(Boolean);
-			for (const fact of newFacts) await appendFact(userId, fact);
+			const newFacts = summaryText
+				.split('\n')
+				.map((f) => f.replace(/^-\s*/, '').trim())
+				.filter(Boolean);
+
+			for (const fact of newFacts) {
+				await appendFact(userId, fact);
+			}
 		}
 	} catch (err) {
-		console.error(`[ai/facts] summarization failed for ${userId}:`, err.message);
+		console.error(
+			`[ai/facts] summarization failed for ${userId}:`,
+			err.message
+		);
 	}
 }
 
-module.exports = { classifyFact, appendFact, getFactsString, summarizeAndStoreFacts, typeLabels };
+module.exports = {
+	classifyFact,
+	appendFact,
+	getFactsString,
+	summarizeAndStoreFacts,
+	typeLabels,
+};
