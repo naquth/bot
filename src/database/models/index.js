@@ -44,6 +44,8 @@ const Subdomain = require('./Subdomain');
 const DnsRecord = require('./DnsRecord');
 const UserFact = require('./UserFact');
 const UserAiSetting = require('./UserAiSetting');
+const Friend = require('./Friend');
+const MathScore = require('./MathScore');
 
 Subdomain.hasMany(DnsRecord, { foreignKey: 'subdomainId', onDelete: 'CASCADE' });
 DnsRecord.belongsTo(Subdomain, { foreignKey: 'subdomainId' });
@@ -102,4 +104,6 @@ module.exports = {
 	DnsRecord,
 	UserFact,
 	UserAiSetting,
+	Friend,
+	MathScore,
 };
