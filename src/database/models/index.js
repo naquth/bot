@@ -42,6 +42,8 @@ const LevelingSetting = require('./LevelingSetting');
 const UserLevel = require('./UserLevel');
 const Subdomain = require('./Subdomain');
 const DnsRecord = require('./DnsRecord');
+const UserFact = require('./UserFact');
+const UserAiSetting = require('./UserAiSetting');
 
 Subdomain.hasMany(DnsRecord, { foreignKey: 'subdomainId', onDelete: 'CASCADE' });
 DnsRecord.belongsTo(Subdomain, { foreignKey: 'subdomainId' });
@@ -98,4 +100,6 @@ module.exports = {
 	UserLevel,
 	Subdomain,
 	DnsRecord,
+	UserFact,
+	UserAiSetting,
 };

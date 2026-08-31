@@ -15,6 +15,8 @@ const ServerSetting = sequelize.define('ServerSetting', {
 	streakOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	verificationOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	levelingOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	aiOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	aiChannelIds: { type: DataTypes.JSON, defaultValue: [] },
 	// --- Automod ---
 	automodOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	modLogChannelId: { type: DataTypes.STRING, allowNull: true },
