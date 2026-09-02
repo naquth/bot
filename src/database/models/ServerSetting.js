@@ -17,6 +17,13 @@ const ServerSetting = sequelize.define('ServerSetting', {
 	levelingOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	aiOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	aiChannelIds: { type: DataTypes.JSON, defaultValue: [] },
+	minecraftStatsOn: { type: DataTypes.BOOLEAN, defaultValue: false },
+	minecraftIp: { type: DataTypes.STRING, allowNull: true },
+	minecraftPort: { type: DataTypes.INTEGER, defaultValue: 25565 },
+	minecraftIpChannelId: { type: DataTypes.STRING, allowNull: true },
+	minecraftPortChannelId: { type: DataTypes.STRING, allowNull: true },
+	minecraftStatusChannelId: { type: DataTypes.STRING, allowNull: true },
+	minecraftPlayersChannelId: { type: DataTypes.STRING, allowNull: true },
 	// --- Automod ---
 	automodOn: { type: DataTypes.BOOLEAN, defaultValue: false },
 	modLogChannelId: { type: DataTypes.STRING, allowNull: true },

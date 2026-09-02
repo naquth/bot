@@ -110,6 +110,9 @@ async function main() {
 	const { startSocialAlertPoller } = require('./utils/socialAlertPoller');
 	client.once('ready', () => startSocialAlertPoller(client));
 
+	const { startMinecraftStatsUpdater } = require('./utils/minecraftStats');
+	client.once('ready', () => startMinecraftStatsUpdater(client));
+
 	await client.login(process.env.DISCORD_TOKEN);
 }
 

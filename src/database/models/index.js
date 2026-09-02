@@ -46,6 +46,8 @@ const UserFact = require('./UserFact');
 const UserAiSetting = require('./UserAiSetting');
 const Friend = require('./Friend');
 const MathScore = require('./MathScore');
+const ModmailConfig = require('./ModmailConfig');
+const Modmail = require('./Modmail');
 
 Subdomain.hasMany(DnsRecord, { foreignKey: 'subdomainId', onDelete: 'CASCADE' });
 DnsRecord.belongsTo(Subdomain, { foreignKey: 'subdomainId' });
@@ -106,4 +108,6 @@ module.exports = {
 	UserAiSetting,
 	Friend,
 	MathScore,
+	ModmailConfig,
+	Modmail,
 };
