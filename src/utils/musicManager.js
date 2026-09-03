@@ -45,9 +45,11 @@ function controlRows(isPaused, hasHistory = false, disabled = false) {
 		new ButtonBuilder().setCustomId('music_loop').setEmoji('🔁').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
 	);
 	const row2 = new ActionRowBuilder().addComponents(
+		new ButtonBuilder().setCustomId('music_karaoke').setEmoji('🎤').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
 		new ButtonBuilder().setCustomId('music_queue').setEmoji('📜').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
 		new ButtonBuilder().setCustomId('music_stop').setEmoji('⏹️').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
 		new ButtonBuilder().setCustomId('music_shuffle').setEmoji('🔀').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+		new ButtonBuilder().setCustomId('music_favorite_add').setEmoji('⭐').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
 	);
 	return [row1, row2];
 }
@@ -110,6 +112,7 @@ class MusicManager {
 
 		this.client.once('clientReady', () => {
 			this.client.poru.init(this.client);
+			this.client.karaoke?.attachNodeListeners();
 			this.startTicker();
 		});
 		// discord.js v14 emits 'ready'; keep both so this works regardless of version quirks.
@@ -139,6 +142,9 @@ class MusicManager {
 		});
 
 		poru.on('trackStart', async (player, track) => {
+			if (this.client.karaoke?.hasSession(player.guildId)) {
+				await this.client.karaoke.stopSession(player).catch(() => {});
+			}
 			if (player.disconnectTimeout) {
 				clearTimeout(player.disconnectTimeout);
 				player.disconnectTimeout = null;
@@ -178,6 +184,9 @@ class MusicManager {
 		});
 
 		poru.on('trackEnd', async (player, track) => {
+			if (this.client.karaoke?.hasSession(player.guildId)) {
+				await this.client.karaoke.stopSession(player).catch(() => {});
+			}
 			const state = this.getState(player.guildId);
 			if (!player._isGoingBack && track) {
 				state.previousTracks.unshift(track);
@@ -258,6 +267,9 @@ class MusicManager {
 		});
 
 		poru.on('playerDestroy', async (player) => {
+			if (this.client.karaoke?.hasSession(player.guildId)) {
+				await this.client.karaoke.stopSession(player).catch(() => {});
+			}
 			if (player.updateInterval) clearInterval(player.updateInterval);
 			if (player.buttonCollector) {
 				try {
@@ -345,6 +357,10 @@ class MusicManager {
 					return handlers.handleQueue(interaction, player);
 				case 'music_shuffle':
 					return handlers.handleShuffle(interaction, player);
+				case 'music_karaoke':
+					return handlers.handleKaraoke(interaction, player);
+				case 'music_favorite_add':
+					return handlers.handleFavoriteAdd(interaction, player);
 			}
 		});
 	}

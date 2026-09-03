@@ -12,6 +12,9 @@ const Image = require('./Image');
 const BoosterSetting = require('./BoosterSetting');
 const Giveaway = require('./Giveaway');
 const Music247 = require('./Music247');
+const Playlist = require('./Playlist');
+const PlaylistTrack = require('./PlaylistTrack');
+const Favorite = require('./Favorite');
 const Reminder = require('./Reminder');
 const UserTimezone = require('./UserTimezone');
 const UserBirthday = require('./UserBirthday');
@@ -53,6 +56,9 @@ const Modmail = require('./Modmail');
 Subdomain.hasMany(DnsRecord, { foreignKey: 'subdomainId', onDelete: 'CASCADE' });
 DnsRecord.belongsTo(Subdomain, { foreignKey: 'subdomainId' });
 
+Playlist.hasMany(PlaylistTrack, { foreignKey: 'playlistId', as: 'tracks', onDelete: 'CASCADE' });
+PlaylistTrack.belongsTo(Playlist, { foreignKey: 'playlistId', as: 'playlist' });
+
 UserPet.belongsTo(Pet, { foreignKey: 'petId', as: 'pet' });
 Pet.hasMany(UserPet, { foreignKey: 'petId' });
 
@@ -75,6 +81,9 @@ module.exports = {
 	BoosterSetting,
 	Giveaway,
 	Music247,
+	Playlist,
+	PlaylistTrack,
+	Favorite,
 	Reminder,
 	UserTimezone,
 	UserBirthday,

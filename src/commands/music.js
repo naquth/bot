@@ -53,7 +53,9 @@ module.exports = {
 				.addStringOption((o) => o.setName('status').setDescription('Enable or disable').setRequired(true).addChoices({ name: 'Enable', value: 'enable' }, { name: 'Disable', value: 'disable' })),
 		)
 		.addSubcommand((sub) => sub.setName('volume').setDescription('Set the playback volume.').addIntegerOption((o) => o.setName('level').setDescription('1-1000').setRequired(true).setMinValue(1).setMaxValue(1000)))
-		.addSubcommand((sub) => sub.setName('247').setDescription('Toggle 24/7 mode (stay connected even when idle).').addBooleanOption((o) => o.setName('lock').setDescription('Lock this session to only you.'))),
+		.addSubcommand((sub) => sub.setName('247').setDescription('Toggle 24/7 mode (stay connected even when idle).').addBooleanOption((o) => o.setName('lock').setDescription('Lock this session to only you.')))
+		.addSubcommand((sub) => sub.setName('replay').setDescription('Replay the current track from the start.'))
+		.addSubcommand((sub) => sub.setName('grab').setDescription('DM yourself the current track info.')),
 
 	async execute(interaction) {
 		if (!interaction.client.poru) {
@@ -98,6 +100,10 @@ module.exports = {
 				return handlers.handleAutoplay(interaction, player);
 			case 'volume':
 				return handlers.handleVolume(interaction, player);
+			case 'replay':
+				return handlers.handleReplay(interaction, player);
+			case 'grab':
+				return handlers.handleGrab(interaction, player);
 		}
 	},
 };

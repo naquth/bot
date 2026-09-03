@@ -97,8 +97,10 @@ async function main() {
 
 	const { MusicManager } = require('./utils/musicManager');
 	const MusicHandlers = require('./utils/musicHandlers');
+	const KaraokeManager = require('./utils/karaokeManager');
 	client.music = new MusicManager(client);
 	client.musicHandlers = new MusicHandlers(client);
+	client.karaoke = new KaraokeManager(client);
 	client.music.init();
 
 	const { startReminderProcessor } = require('./utils/reminderProcessor');
