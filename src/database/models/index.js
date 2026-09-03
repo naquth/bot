@@ -11,6 +11,7 @@ const AutoReply = require('./AutoReply');
 const Image = require('./Image');
 const BoosterSetting = require('./BoosterSetting');
 const Giveaway = require('./Giveaway');
+const Music247 = require('./Music247');
 const Reminder = require('./Reminder');
 const UserTimezone = require('./UserTimezone');
 const UserBirthday = require('./UserBirthday');
@@ -73,6 +74,7 @@ module.exports = {
 	Image,
 	BoosterSetting,
 	Giveaway,
+	Music247,
 	Reminder,
 	UserTimezone,
 	UserBirthday,

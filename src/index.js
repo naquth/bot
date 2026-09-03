@@ -95,6 +95,12 @@ async function main() {
 	client.giveawayManager = new GiveawayManager(client);
 	client.once('ready', () => client.giveawayManager.init());
 
+	const { MusicManager } = require('./utils/musicManager');
+	const MusicHandlers = require('./utils/musicHandlers');
+	client.music = new MusicManager(client);
+	client.musicHandlers = new MusicHandlers(client);
+	client.music.init();
+
 	const { startReminderProcessor } = require('./utils/reminderProcessor');
 	client.once('ready', () => startReminderProcessor(client));
 
