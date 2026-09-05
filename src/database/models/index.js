@@ -13,6 +13,8 @@ const BoosterSetting = require('./BoosterSetting');
 const Giveaway = require('./Giveaway');
 const Music247 = require('./Music247');
 const Playlist = require('./Playlist');
+const TempVoiceConfig = require('./TempVoiceConfig');
+const TempVoiceChannel = require('./TempVoiceChannel');
 const PlaylistTrack = require('./PlaylistTrack');
 const Favorite = require('./Favorite');
 const Reminder = require('./Reminder');
@@ -27,6 +29,15 @@ const Invite = require('./Invite');
 const InviteHistory = require('./InviteHistory');
 const InviteSetting = require('./InviteSetting');
 const UserWallet = require('./UserWallet');
+const Inventory = require('./Inventory');
+const Marriage = require('./Marriage');
+const KythLiquidityPool = require('./KythLiquidityPool');
+const MarketTransaction = require('./MarketTransaction');
+const MarketPortfolio = require('./MarketPortfolio');
+const MarketOrder = require('./MarketOrder');
+const GuildLiquidityPool = require('./GuildLiquidityPool');
+const GuildTokenHolding = require('./GuildTokenHolding');
+const GlobalChat = require('./GlobalChat');
 const Pet = require('./Pet');
 const UserPet = require('./UserPet');
 const QuestConfig = require('./QuestConfig');
@@ -82,6 +93,8 @@ module.exports = {
 	Giveaway,
 	Music247,
 	Playlist,
+	TempVoiceConfig,
+	TempVoiceChannel,
 	PlaylistTrack,
 	Favorite,
 	Reminder,
@@ -96,6 +109,15 @@ module.exports = {
 	InviteHistory,
 	InviteSetting,
 	UserWallet,
+	Inventory,
+	Marriage,
+	KythLiquidityPool,
+	MarketTransaction,
+	MarketPortfolio,
+	MarketOrder,
+	GuildLiquidityPool,
+	GuildTokenHolding,
+	GlobalChat,
 	Pet,
 	UserPet,
 	QuestConfig,

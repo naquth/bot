@@ -106,6 +106,21 @@ async function main() {
 	const { startReminderProcessor } = require('./utils/reminderProcessor');
 	client.once('ready', () => startReminderProcessor(client));
 
+	const { startLoanProcessor } = require('./utils/loanProcessor');
+	client.once('ready', () => startLoanProcessor(client));
+
+	const { startKythTasks } = require('./utils/kythTasks');
+	client.once('ready', () => startKythTasks(client));
+
+	const { startOrderProcessor } = require('./utils/orderProcessor');
+	client.once('ready', () => startOrderProcessor(client));
+
+	const { startWebhookHealthCheck } = require('./utils/globalChatHealthCheck');
+	client.once('ready', () => startWebhookHealthCheck());
+
+	const { startApiServer } = require('./api/server');
+	client.once('ready', () => startApiServer(client));
+
 	const { startBirthdayAnnouncer } = require('./utils/birthdayScheduler');
 	client.once('ready', () => startBirthdayAnnouncer(client));
 

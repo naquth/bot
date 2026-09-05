@@ -1,21 +1,10 @@
-const {
-	SlashCommandBuilder,
-	InteractionContextType,
-} = require('discord.js');
-const {
-	joinVoiceChannel,
-	createAudioPlayer,
-	createAudioResource,
-	AudioPlayerStatus,
-	EndBehaviorType,
-	StreamType,
-} = require('@discordjs/voice');
+const { SlashCommandBuilder, InteractionContextType } = require('discord.js');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, EndBehaviorType, StreamType, VoiceConnectionStatus, getVoiceConnection } = require('@discordjs/voice');
 const { PassThrough } = require('node:stream');
-const VoiceRelayClient = require('../voice/VoiceRelayClient');
+const relayBus = require('../voice/VoiceRelayBus');
 const { errorEmbed, successEmbed } = require('../utils/embeds');
 
-// One relay client + voice connection per guild
-const relayInstances = new Map();
+const sessions = new Map();
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -27,107 +16,110 @@ module.exports = {
 				.setName('connect')
 				.setDescription('Connect to (or create) a global voice room.')
 				.addStringOption((o) => o.setName('room').setDescription('Room ID — use the same ID on both servers to link them.').setRequired(true)),
-		),
+		)
+		.addSubcommand((sub) => sub.setName('disconnect').setDescription('Leave the global voice room and disconnect from voice.')),
 
 	async execute(interaction) {
-		if (interaction.options.getSubcommand() !== 'connect') return;
-
-		await interaction.deferReply();
-
-		const apiUrl = process.env.GLOBALVOICE_RELAY_URL;
-		if (!apiUrl) {
-			return interaction.editReply({
-				embeds: [errorEmbed('Global Voice is not configured. Set `GLOBALVOICE_RELAY_URL` (and optionally `GLOBALVOICE_RELAY_KEY`) in `.env` to a relay server you control — see README.')],
-			});
-		}
-
-		const channel = interaction.member.voice.channel;
-		if (!channel) {
-			return interaction.editReply({ embeds: [errorEmbed('You must be in a voice channel first!')] });
-		}
-
-		const roomId = interaction.options.getString('room');
-		const apiKey = process.env.GLOBALVOICE_RELAY_KEY;
-
-		const connection = joinVoiceChannel({
-			channelId: channel.id,
-			guildId: channel.guild.id,
-			adapterCreator: channel.guild.voiceAdapterCreator,
-			selfDeaf: false,
-			selfMute: false,
-		});
-
-		let relay = relayInstances.get(interaction.guildId);
-		if (!relay) {
-			relay = new VoiceRelayClient(apiUrl, interaction.client.user.username, apiKey);
-			relay.connect();
-			relayInstances.set(interaction.guildId, relay);
-		}
-
-		relay.removeAllListeners('ready');
-		relay.removeAllListeners('audio');
-		connection.receiver.speaking.removeAllListeners('start');
-
-		const announceConnected = async () => {
-			await interaction.editReply({ embeds: [successEmbed(`**Connected to Global Voice!**\nRoom: \`${roomId}\`\nStatus: Listening & Broadcasting`)] });
-		};
-
-		relay.on('ready', () => {
-			relay.join(roomId);
-			announceConnected().catch(() => {});
-		});
-
-		// Forward this server's mic audio to the relay
-		const speakingUsers = new Set();
-		connection.receiver.speaking.on('start', (userId) => {
-			if (speakingUsers.has(userId)) return;
-			speakingUsers.add(userId);
-
-			const audioStream = connection.receiver.subscribe(userId, {
-				end: { behavior: EndBehaviorType.AfterSilence, duration: 100 },
-			});
-			audioStream.on('data', (chunk) => relay.broadcastAudio(chunk));
-			audioStream.on('end', () => speakingUsers.delete(userId));
-			audioStream.on('error', (err) => {
-				console.error(`[globalvoice] audio stream error: ${err.message || err}`);
-				speakingUsers.delete(userId);
-			});
-		});
-
-		// Play incoming relay audio into this voice channel
-		const player = createAudioPlayer();
-		connection.subscribe(player);
-
-		let passthrough = null;
-		function playStream() {
-			if (passthrough) passthrough.destroy();
-			passthrough = new PassThrough({ highWaterMark: 12 });
-			passthrough.on('error', (err) => {
-				if (err.code === 'ERR_STREAM_DESTROYED') return;
-				console.error(`[globalvoice] stream error: ${err.message || err}`);
-			});
-			const resource = createAudioResource(passthrough, { inputType: StreamType.Opus });
-			try {
-				player.play(resource);
-			} catch (err) {
-				console.error(`[globalvoice] player.play error: ${err.message || err}`);
-				setTimeout(playStream, 1000);
-			}
-		}
-		playStream();
-		player.on(AudioPlayerStatus.Idle, playStream);
-		player.on('error', (err) => {
-			console.error(`[globalvoice] player error: ${err.message || err}`);
-			playStream();
-		});
-
-		relay.on('audio', (buffer) => {
-			if (passthrough && !passthrough.destroyed && passthrough.writable) passthrough.write(buffer);
-		});
-
-		if (relay.ws?.readyState === 1) {
-			relay.join(roomId);
-			await announceConnected();
-		}
+		const sub = interaction.options.getSubcommand();
+		if (sub === 'connect') return handleConnect(interaction);
+		if (sub === 'disconnect') return handleDisconnect(interaction);
 	},
+
+	teardownSession,
 };
+
+async function handleConnect(interaction) {
+	await interaction.deferReply();
+
+	const channel = interaction.member.voice.channel;
+	if (!channel) return interaction.editReply({ embeds: [errorEmbed('You must be in a voice channel first!')] });
+
+	const roomId = interaction.options.getString('room');
+	const guildId = interaction.guildId;
+
+	teardownSession(guildId);
+
+	const connection = joinVoiceChannel({ channelId: channel.id, guildId, adapterCreator: channel.guild.voiceAdapterCreator, selfDeaf: false, selfMute: false });
+	const relay = relayBus.join(roomId, guildId);
+	const player = createAudioPlayer();
+	connection.subscribe(player);
+
+	const speakingUsers = new Set();
+	const onSpeakingStart = (userId) => {
+		if (speakingUsers.has(userId)) return;
+		speakingUsers.add(userId);
+		const audioStream = connection.receiver.subscribe(userId, { end: { behavior: EndBehaviorType.AfterSilence, duration: 100 } });
+		audioStream.on('data', (chunk) => relay.broadcastAudio(chunk));
+		audioStream.on('end', () => speakingUsers.delete(userId));
+		audioStream.on('error', (err) => {
+			console.error(`[globalvoice] audio stream error: ${err.message || err}`);
+			speakingUsers.delete(userId);
+		});
+	};
+	connection.receiver.speaking.on('start', onSpeakingStart);
+
+	let passthrough = null;
+	let destroyed = false;
+	function playStream() {
+		if (destroyed) return;
+		if (passthrough) passthrough.destroy();
+		passthrough = new PassThrough({ highWaterMark: 12 });
+		passthrough.on('error', (err) => {
+			if (err.code === 'ERR_STREAM_DESTROYED') return;
+			console.error(`[globalvoice] stream error: ${err.message || err}`);
+		});
+		const resource = createAudioResource(passthrough, { inputType: StreamType.Opus });
+		try {
+			player.play(resource);
+		} catch (err) {
+			console.error(`[globalvoice] player.play error: ${err.message || err}`);
+			setTimeout(playStream, 1000);
+		}
+	}
+	playStream();
+	player.on(AudioPlayerStatus.Idle, playStream);
+	player.on('error', (err) => {
+		console.error(`[globalvoice] player error: ${err.message || err}`);
+		playStream();
+	});
+
+	relay.on('audio', (buffer) => {
+		if (passthrough && !passthrough.destroyed && passthrough.writable) passthrough.write(buffer);
+	});
+
+	const onDisconnected = () => teardownSession(guildId);
+	connection.on(VoiceConnectionStatus.Disconnected, onDisconnected);
+	connection.on(VoiceConnectionStatus.Destroyed, onDisconnected);
+
+	sessions.set(guildId, { connection, player, relay, roomId, markDestroyed: () => (destroyed = true) });
+
+	const peers = relayBus.roomSize(roomId) - 1;
+	return interaction.editReply({ embeds: [successEmbed(`**Connected to Global Voice!**\nRoom: \`${roomId}\`\nOther servers in this room: **${peers}**\nStatus: Listening & Broadcasting`)] });
+}
+
+async function handleDisconnect(interaction) {
+	await interaction.deferReply({ ephemeral: true });
+	const guildId = interaction.guildId;
+	if (!sessions.has(guildId)) return interaction.editReply({ embeds: [errorEmbed('❌ Not currently connected to a global voice room.')] });
+
+	teardownSession(guildId);
+	return interaction.editReply({ embeds: [successEmbed('👋 Disconnected from the global voice room.')] });
+}
+
+function teardownSession(guildId) {
+	const session = sessions.get(guildId);
+	if (!session) return;
+
+	session.markDestroyed();
+	session.relay.removeAllListeners('audio');
+	session.relay.leave();
+	try {
+		session.player.stop();
+	} catch {}
+	try {
+		const conn = getVoiceConnection(guildId) || session.connection;
+		if (conn && conn.state.status !== VoiceConnectionStatus.Destroyed) conn.destroy();
+	} catch {}
+
+	sessions.delete(guildId);
+}
